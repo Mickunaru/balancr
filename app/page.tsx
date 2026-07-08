@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { Wallet } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function Home() {
@@ -12,7 +14,17 @@ export default function Home() {
             Balancr
           </span>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={<Link href="/signin" />}
+          >
+            Sign in
+          </Button>
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">

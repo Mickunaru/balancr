@@ -1,0 +1,181 @@
+// Prisma schema for Balancr.
+// Money is always integer cents — never floats (see project-spec.md §4).
+// `Account` is reserved by the NextAuth Prisma adapter (OAuth accounts);
+// bank accounts live in `BankAccount`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Auth (NextAuth adapter models) ----------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  items      Item[]
+  categories Category[]
+  budgets    Budget[]
+  rules      Rule[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ---------- Plaid ----------
+
+enum ItemStatus {
+  ACTIVE
+  LOGIN_REQUIRED
+  ERROR
+}
+
+model Item {
+  id              String     @id @default(cuid())
+  userId          String
+  plaidItemId     String     @unique
+  accessToken     String // AES-256-GCM encrypted, never plaintext
+  institutionId   String?
+  institutionName String?
+  status          ItemStatus @default(ACTIVE)
+  syncCursor      String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accounts BankAccount[]
+}
+
+model BankAccount {
+  id                  String   @id @default(cuid())
+  itemId              String
+  plaidAccountId      String   @unique
+  name                String
+  officialName        String?
+  type                String
+  subtype             String?
+  currentBalanceCents Int      @default(0)
+  currencyCode        String   @default("CAD")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  item         Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id           String   @id @default(cuid())
+  accountId    String
+  plaidTxnId   String?  @unique // null for CSV-imported rows
+  date         DateTime @db.Date
+  amountCents  Int
+  name         String
+  merchantName String?
+  pending      Boolean  @default(false)
+  categoryId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  account  BankAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, date])
+  @@index([categoryId])
+}
+
+// ---------- Categorization / budgets ----------
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Category[]    @relation("CategoryTree")
+  transactions Transaction[]
+  budgets      Budget[]
+  rules        Rule[]
+
+  @@unique([userId, name])
+}
+
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  categoryId String
+  month      String // "YYYY-MM"
+  limitCents Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month])
+}
+
+model Rule {
+  id           String   @id @default(cuid())
+  userId       String
+  matchPattern String // matched against transaction name/merchant
+  categoryId   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
