@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Wallet } from "lucide-react";
 
 import { auth, signOut } from "@/auth";
@@ -38,9 +39,12 @@ export default async function DashboardPage() {
         <p className="text-muted-foreground">
           Signed in as {session?.user?.email}
         </p>
-        <p className="text-sm text-muted-foreground/60">
-          Accounts and transactions arrive in iteration 2.
-        </p>
+        <Button
+          nativeButton={false}
+          render={<Link href="/dashboard/accounts" />}
+        >
+          View accounts
+        </Button>
       </main>
     </div>
   );

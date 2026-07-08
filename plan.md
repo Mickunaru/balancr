@@ -104,6 +104,7 @@ Iterative plan derived from [project-spec.md](project-spec.md). Each iteration e
 
 **Steps:**
 1. Dashboard layout (server components): net worth headline (large number), net-worth-over-time line chart, cash-flow in-vs-out bar chart, spending-by-category donut, recent transactions list.
+   - **Asset/liability sign split:** Plaid reports `balances.current` for liability accounts (credit card, mortgage, student loan, line of credit) as the amount *owed* — a positive number. Net worth must **subtract** these, not add them. Classify by account `type`: `credit` and `loan` are liabilities; `depository` and `investment` are assets. The accounts page (iteration 2) currently prints raw `current` per account, which is fine for a plain list but wrong for any total. Add a signed helper (e.g. `netCents(account)`) and use it for every aggregate (net worth headline, net-worth trend, assets/liabilities split).
 2. Charts: Recharts (or visx) — minimal, no gridline clutter, animated on load.
 3. Skeleton loaders on all data-heavy sections — no spinners.
 4. Framer Motion: subtle page/element transitions.
