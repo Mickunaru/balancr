@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { encryptToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { plaid, PLAID_COUNTRY_CODES } from "@/lib/plaid";
+import { syncItemTransactions } from "@/lib/sync";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     const accountsResp = await plaid.accountsGet({ access_token: accessToken });
 
     // Persist Item (encrypted token) + its accounts atomically.
-    await db.$transaction(async (tx) => {
+    const itemDbId = await db.$transaction(async (tx) => {
       const item = await tx.item.create({
         data: {
           userId: session.user.id,
@@ -70,7 +71,17 @@ export async function POST(request: Request) {
           },
         });
       }
+
+      return item.id;
     });
+
+    // Initial pull so transactions appear immediately after linking.
+    // Failures are non-fatal — webhook or "Sync now" catches up later.
+    try {
+      await syncItemTransactions(itemDbId);
+    } catch (error) {
+      console.error("initial sync failed", error);
+    }
 
     return NextResponse.json({ ok: true, institutionName });
   } catch (error) {

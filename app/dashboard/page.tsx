@@ -39,12 +39,21 @@ export default async function DashboardPage() {
         <p className="text-muted-foreground">
           Signed in as {session?.user?.email}
         </p>
-        <Button
-          nativeButton={false}
-          render={<Link href="/dashboard/accounts" />}
-        >
-          View accounts
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            nativeButton={false}
+            render={<Link href="/dashboard/accounts" />}
+          >
+            View accounts
+          </Button>
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/dashboard/transactions" />}
+          >
+            Transactions
+          </Button>
+        </div>
       </main>
     </div>
   );

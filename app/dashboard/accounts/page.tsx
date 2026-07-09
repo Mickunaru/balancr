@@ -3,6 +3,7 @@ import { Landmark } from "lucide-react";
 
 import { auth } from "@/auth";
 import { Card, CardContent } from "@/components/ui/card";
+import { SyncNowButton } from "@/components/sync-now-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/format";
 
@@ -32,7 +33,10 @@ export default async function AccountsPage() {
             Linked institutions and balances.
           </p>
         </div>
-        <ConnectBankButton />
+        <div className="flex items-center gap-2">
+          <SyncNowButton />
+          <ConnectBankButton />
+        </div>
       </div>
 
       {items.length === 0 ? (

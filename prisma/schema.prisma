@@ -120,6 +120,7 @@ model Transaction {
   name         String
   merchantName String?
   pending      Boolean  @default(false)
+  plaidCategory String? // Plaid personal_finance_category.primary — raw input for iteration 4 mapping
   categoryId   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
