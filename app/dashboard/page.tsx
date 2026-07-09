@@ -60,6 +60,13 @@ export default async function DashboardPage() {
           >
             Categories
           </Button>
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/dashboard/budgets" />}
+          >
+            Budgets
+          </Button>
         </div>
       </main>
     </div>
