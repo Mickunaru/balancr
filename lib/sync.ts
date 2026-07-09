@@ -1,5 +1,6 @@
 import type { Transaction as PlaidTransaction } from "plaid";
 
+import { buildCategoryResolver } from "@/lib/categories";
 import { decryptToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { plaid } from "@/lib/plaid";
@@ -10,6 +11,7 @@ import { plaid } from "@/lib/plaid";
 export async function syncItemTransactions(itemDbId: string) {
   const item = await db.item.findUniqueOrThrow({ where: { id: itemDbId } });
   const accessToken = decryptToken(item.accessToken);
+  const resolveCategory = await buildCategoryResolver(item.userId);
 
   // Map Plaid account ids -> our BankAccount ids once up front.
   const accounts = await db.bankAccount.findMany({
@@ -37,10 +39,17 @@ export async function syncItemTransactions(itemDbId: string) {
     for (const txn of data.added) {
       const accountId = accountIdByPlaidId.get(txn.account_id);
       if (!accountId) continue; // account type we didn't store
+      const fields = txnFields(txn);
       await db.transaction.upsert({
         where: { plaidTxnId: txn.transaction_id },
-        create: { accountId, ...txnFields(txn), plaidTxnId: txn.transaction_id },
-        update: txnFields(txn),
+        create: {
+          accountId,
+          ...fields,
+          plaidTxnId: txn.transaction_id,
+          categoryId: resolveCategory(fields),
+        },
+        // Never touch categoryId on update — manual overrides win.
+        update: fields,
       });
       added++;
     }
@@ -48,10 +57,16 @@ export async function syncItemTransactions(itemDbId: string) {
     for (const txn of data.modified) {
       const accountId = accountIdByPlaidId.get(txn.account_id);
       if (!accountId) continue;
+      const fields = txnFields(txn);
       await db.transaction.upsert({
         where: { plaidTxnId: txn.transaction_id },
-        create: { accountId, ...txnFields(txn), plaidTxnId: txn.transaction_id },
-        update: txnFields(txn),
+        create: {
+          accountId,
+          ...fields,
+          plaidTxnId: txn.transaction_id,
+          categoryId: resolveCategory(fields),
+        },
+        update: fields,
       });
       modified++;
     }
@@ -75,8 +90,40 @@ export async function syncItemTransactions(itemDbId: string) {
   });
 
   await refreshBalances(item.id, accessToken);
+  await backfillCategories(item.userId, resolveCategory);
 
   return { added, modified, removed };
+}
+
+// Categorize rows that predate the rules/mapping (or were synced before
+// iteration 4). Only touches categoryId=null rows, so manual choices stay.
+async function backfillCategories(
+  userId: string,
+  resolveCategory: (txn: {
+    name: string;
+    merchantName: string | null;
+    plaidCategory: string | null;
+  }) => string | null
+) {
+  const uncategorized = await db.transaction.findMany({
+    where: { categoryId: null, account: { item: { userId } } },
+    select: {
+      id: true,
+      name: true,
+      merchantName: true,
+      plaidCategory: true,
+    },
+  });
+
+  for (const txn of uncategorized) {
+    const categoryId = resolveCategory(txn);
+    if (categoryId) {
+      await db.transaction.update({
+        where: { id: txn.id },
+        data: { categoryId },
+      });
+    }
+  }
 }
 
 /** Sync every Item belonging to a user (manual "Sync now"). */
@@ -102,7 +149,12 @@ function txnFields(txn: PlaidTransaction) {
     name: txn.name,
     merchantName: txn.merchant_name ?? null,
     pending: txn.pending,
-    plaidCategory: txn.personal_finance_category?.primary ?? null,
+    // Detailed code when present (FOOD_AND_DRINK_GROCERIES) — it prefixes
+    // the primary, so mapping can fall back to the primary match.
+    plaidCategory:
+      txn.personal_finance_category?.detailed ??
+      txn.personal_finance_category?.primary ??
+      null,
   };
 }
 

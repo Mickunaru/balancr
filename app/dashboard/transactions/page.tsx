@@ -10,6 +10,8 @@ import { SyncNowButton } from "@/components/sync-now-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/format";
 
+import { CategoryPicker } from "./category-picker";
+
 export const metadata: Metadata = {
   title: "Transactions — Balancr",
 };
@@ -29,7 +31,7 @@ export default async function TransactionsPage({
     account: { item: { userId: session!.user.id } },
   };
 
-  const [transactions, total] = await Promise.all([
+  const [transactions, total, categories] = await Promise.all([
     db.transaction.findMany({
       where,
       include: { account: { select: { name: true, currencyCode: true } } },
@@ -38,6 +40,11 @@ export default async function TransactionsPage({
       take: PAGE_SIZE,
     }),
     db.transaction.count({ where }),
+    db.category.findMany({
+      where: { userId: session!.user.id },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -88,11 +95,17 @@ export default async function TransactionsPage({
                     {txn.pending && (
                       <Badge variant="outline">Pending</Badge>
                     )}
+                    <CategoryPicker
+                      transactionId={txn.id}
+                      merchantLabel={txn.merchantName ?? txn.name}
+                      categoryId={txn.categoryId}
+                      categories={categories}
+                    />
                     <p
                       className={
                         txn.amountCents < 0
-                          ? "font-heading tabular-nums text-emerald-600 dark:text-emerald-400"
-                          : "font-heading tabular-nums"
+                          ? "w-24 text-right font-heading tabular-nums text-emerald-600 dark:text-emerald-400"
+                          : "w-24 text-right font-heading tabular-nums"
                       }
                     >
                       {/* Plaid: positive = money out, negative = money in */}
