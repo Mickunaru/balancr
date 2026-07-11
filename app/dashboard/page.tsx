@@ -6,6 +6,8 @@ import { auth } from "@/auth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FadeIn } from "@/components/fade-in";
+import { ReconnectBanner } from "@/components/reconnect-banner";
+import { db } from "@/lib/db";
 import {
   getCashFlow,
   getNetWorth,
@@ -25,13 +27,18 @@ export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [netWorth, series, cashFlow, spending, recent] = await Promise.all([
-    getNetWorth(userId),
-    getNetWorthSeries(userId),
-    getCashFlow(userId),
-    getSpendingByCategory(userId),
-    getRecentTransactions(userId),
-  ]);
+  const [netWorth, series, cashFlow, spending, recent, erroredItems] =
+    await Promise.all([
+      getNetWorth(userId),
+      getNetWorthSeries(userId),
+      getCashFlow(userId),
+      getSpendingByCategory(userId),
+      getRecentTransactions(userId),
+      db.item.findMany({
+        where: { userId, status: { not: "ACTIVE" } },
+        select: { id: true, institutionName: true },
+      }),
+    ]);
 
   const previous = series.at(-2)?.netWorthCents;
   const deltaCents =
@@ -39,6 +46,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
+      <ReconnectBanner items={erroredItems} />
       <FadeIn>
         <div className="mb-8">
           <p className="text-sm text-muted-foreground">Net worth</p>

@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     webhook_type?: string;
     webhook_code?: string;
     item_id?: string;
+    error?: { error_code?: string };
   };
   try {
     payload = JSON.parse(rawBody);
@@ -48,6 +49,21 @@ export async function POST(request: Request) {
         console.error(`webhook sync failed for item ${item_id}`, error);
         // Still 200 — Plaid retries are not needed; next sync catches up.
       }
+    }
+  } else if (webhook_type === "ITEM" && item_id) {
+    // Re-connect flow (spec §9): expired or expiring credentials.
+    const loginRequired =
+      (webhook_code === "ERROR" &&
+        payload.error?.error_code === "ITEM_LOGIN_REQUIRED") ||
+      webhook_code === "PENDING_EXPIRATION";
+    if (loginRequired) {
+      await db.item.updateMany({
+        where: { plaidItemId: item_id },
+        data: { status: "LOGIN_REQUIRED" },
+      });
+      console.log(`item ${item_id} flagged LOGIN_REQUIRED (${webhook_code})`);
+    } else {
+      console.log("unhandled ITEM webhook", webhook_code);
     }
   } else {
     console.log("unhandled plaid webhook", webhook_type, webhook_code);

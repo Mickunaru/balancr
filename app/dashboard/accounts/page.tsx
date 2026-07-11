@@ -3,6 +3,7 @@ import { Landmark } from "lucide-react";
 
 import { auth } from "@/auth";
 import { Card, CardContent } from "@/components/ui/card";
+import { ReconnectBanner } from "@/components/reconnect-banner";
 import { SyncNowButton } from "@/components/sync-now-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/format";
@@ -22,8 +23,13 @@ export default async function AccountsPage() {
     orderBy: { createdAt: "asc" },
   });
 
+  const erroredItems = items
+    .filter((item) => item.status !== "ACTIVE")
+    .map((item) => ({ id: item.id, institutionName: item.institutionName }));
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
+      <ReconnectBanner items={erroredItems} />
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">

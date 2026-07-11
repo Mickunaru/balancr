@@ -4,6 +4,7 @@ import { buildCategoryResolver } from "@/lib/categories";
 import { decryptToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { plaid } from "@/lib/plaid";
+import { isItemLoginRequired, markItemLoginRequired } from "@/lib/plaid-errors";
 
 // Cursor-based transaction sync for one Item (spec §5: /transactions/sync).
 // Idempotent: upserts on plaidTxnId, so re-runs never double-count, and a
@@ -29,12 +30,22 @@ export async function syncItemTransactions(itemDbId: string) {
   let hasMore = true;
 
   while (hasMore) {
-    const resp = await plaid.transactionsSync({
-      access_token: accessToken,
-      cursor,
-      count: 500,
-    });
-    const data = resp.data;
+    let data;
+    try {
+      const resp = await plaid.transactionsSync({
+        access_token: accessToken,
+        cursor,
+        count: 500,
+      });
+      data = resp.data;
+    } catch (error) {
+      if (isItemLoginRequired(error)) {
+        // Expired credentials (Wealthsimple ~30-day re-auth). Flag the
+        // Item; the UI surfaces a reconnect banner (spec §9).
+        await markItemLoginRequired(item.id);
+      }
+      throw error;
+    }
 
     for (const txn of data.added) {
       const accountId = accountIdByPlaidId.get(txn.account_id);
@@ -134,10 +145,16 @@ export async function syncAllItems(userId: string) {
   });
   const totals = { added: 0, modified: 0, removed: 0 };
   for (const item of items) {
-    const r = await syncItemTransactions(item.id);
-    totals.added += r.added;
-    totals.modified += r.modified;
-    totals.removed += r.removed;
+    // One expired Item must not block the others from syncing; it is
+    // already flagged LOGIN_REQUIRED for the reconnect banner.
+    try {
+      const r = await syncItemTransactions(item.id);
+      totals.added += r.added;
+      totals.modified += r.modified;
+      totals.removed += r.removed;
+    } catch (error) {
+      if (!isItemLoginRequired(error)) throw error;
+    }
   }
   return totals;
 }
