@@ -23,7 +23,7 @@ export default function DashboardLayout({
                 Balancr
               </span>
             </Link>
-            <div className="hidden sm:block">
+            <div className="hidden min-w-0 lg:block">
               <NavLinks />
             </div>
           </div>
@@ -41,7 +41,7 @@ export default function DashboardLayout({
             </form>
           </div>
         </div>
-        <div className="border-t px-4 py-2 sm:hidden">
+        <div className="border-t px-4 py-2 lg:hidden">
           <NavLinks />
         </div>
       </header>
