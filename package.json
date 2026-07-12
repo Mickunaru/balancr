@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:production": "dotenv -e .env.production.local -- next dev",
+    "tunnel": "node scripts/tunnel.mjs",
     "prisma:production": "dotenv -e .env.production.local -- prisma",
     "build": "next build",
     "start": "next start",
