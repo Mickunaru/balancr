@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Landmark } from "lucide-react";
 
 import { auth } from "@/auth";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ReconnectBanner } from "@/components/reconnect-banner";
 import { SyncNowButton } from "@/components/sync-now-button";
@@ -40,6 +42,13 @@ export default async function AccountsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            nativeButton={false}
+            render={<Link href="/dashboard/import" />}
+          >
+            Import CSV
+          </Button>
           <SyncNowButton />
           <ConnectBankButton />
         </div>

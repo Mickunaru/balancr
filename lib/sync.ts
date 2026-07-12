@@ -140,7 +140,8 @@ async function backfillCategories(
 /** Sync every Item belonging to a user (manual "Sync now"). */
 export async function syncAllItems(userId: string) {
   const items = await db.item.findMany({
-    where: { userId },
+    // Manual (CSV-only) items have no Plaid connection to sync.
+    where: { userId, NOT: { plaidItemId: { startsWith: "manual-" } } },
     select: { id: true },
   });
   const totals = { added: 0, modified: 0, removed: 0 };

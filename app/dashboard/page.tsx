@@ -16,6 +16,7 @@ import {
   getSpendingByCategory,
 } from "@/lib/dashboard-data";
 import { formatCents } from "@/lib/format";
+import { detectSubscriptions } from "@/lib/subscriptions";
 
 import { CashFlowChart, NetWorthChart, SpendingDonut } from "./charts";
 
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [netWorth, series, cashFlow, spending, recent, erroredItems] =
+  const [netWorth, series, cashFlow, spending, recent, erroredItems, subs] =
     await Promise.all([
       getNetWorth(userId),
       getNetWorthSeries(userId),
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
         where: { userId, status: { not: "ACTIVE" } },
         select: { id: true, institutionName: true },
       }),
+      detectSubscriptions(userId),
     ]);
 
   const previous = series.at(-2)?.netWorthCents;
@@ -118,6 +120,40 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </FadeIn>
+
+        {subs.length > 0 && (
+          <FadeIn delay={0.18}>
+            <Card>
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle className="text-base">Recurring</CardTitle>
+                <p className="text-sm text-muted-foreground tabular-nums">
+                  {formatCents(subs.reduce((s, x) => s + x.averageCents, 0))}
+                  /mo
+                </p>
+              </CardHeader>
+              <CardContent className="divide-y p-0 px-6">
+                {subs.slice(0, 6).map((sub) => (
+                  <div
+                    key={sub.merchant}
+                    className="flex items-center justify-between gap-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {sub.merchant}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {sub.occurrences}× · next ~{sub.nextExpected}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm tabular-nums">
+                      {formatCents(sub.averageCents)}
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </FadeIn>
+        )}
 
         <FadeIn delay={0.2}>
           <Card>
