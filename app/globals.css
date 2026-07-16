@@ -126,6 +126,20 @@
   }
   html {
     @apply font-sans;
+    /* Native form controls (select popups, scrollbars, date pickers) must
+       follow the theme, or dark mode gets white-on-white select options. */
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  /* Chromium derives the dropdown-list background from the select's own
+     background-color; translucent utilities like bg-input/30 composite over
+     white there, leaving near-white behind white text. Pin options to solid
+     popover colors instead. */
+  select option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
   }
 }
 /* Data-viz palette (validated light+dark, see dataviz skill).
