@@ -5,6 +5,7 @@ import { Landmark } from "lucide-react";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ClearDataButton } from "@/components/clear-data-button";
 import { ReconnectBanner } from "@/components/reconnect-banner";
 import { SyncNowButton } from "@/components/sync-now-button";
 import { db } from "@/lib/db";
@@ -51,6 +52,7 @@ export default async function AccountsPage() {
           </Button>
           <SyncNowButton />
           <ConnectBankButton />
+          {items.length > 0 && <ClearDataButton />}
         </div>
       </div>
 
