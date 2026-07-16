@@ -8,6 +8,7 @@ export default function DashboardLoading() {
         <Skeleton className="h-4 w-20" />
         <Skeleton className="h-12 w-64" />
         <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-56" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
