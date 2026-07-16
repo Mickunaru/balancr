@@ -48,7 +48,14 @@ export function ImportClient({
         setCsv({ headers, rows: res.data });
         setMapping({
           date: guessColumn(headers, ["date", "posted"]),
-          amount: guessColumn(headers, ["amount", "value", "debit"]),
+          amount: guessColumn(headers, [
+            "amount",
+            "montant",
+            "value",
+            "debit",
+            "cad",
+            "usd",
+          ]),
           description: guessColumn(headers, [
             "description",
             "name",
@@ -276,10 +283,18 @@ export function ImportClient({
   );
 }
 
+// Lowercase + strip diacritics so "Numéro" matches "numero", etc.
+function foldHeader(h: string): string {
+  return h
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function guessColumn(headers: string[], candidates: string[]): string {
-  const lower = headers.map((h) => h.toLowerCase());
+  const folded = headers.map(foldHeader);
   for (const candidate of candidates) {
-    const idx = lower.findIndex((h) => h.includes(candidate));
+    const idx = folded.findIndex((h) => h.includes(candidate));
     if (idx !== -1) return headers[idx];
   }
   return "";
@@ -299,9 +314,16 @@ function normalizeRow(
   const date = parseDate(rawDate, dateFormat);
   if (!date) return null;
 
-  // "(12.34)" and "$1,234.56" both appear in bank exports.
+  // "(12.34)", "$1,234.56", and French "1 234,56" all appear in bank exports.
   const negativeParens = /^\(.*\)$/.test(rawAmount);
-  const numeric = Number.parseFloat(rawAmount.replace(/[($,)\s]/g, ""));
+  let cleaned = rawAmount.replace(/[($)\s]/g, "");
+  if (!cleaned.includes(".") && /,\d{1,2}$/.test(cleaned)) {
+    // Decimal comma ("77,11", "1,234,56"): last comma is the decimal point.
+    cleaned = cleaned.replace(/,(?=\d{1,2}$)/, ".").replace(/,/g, "");
+  } else {
+    cleaned = cleaned.replace(/,/g, ""); // thousands commas
+  }
+  const numeric = Number.parseFloat(cleaned);
   if (!Number.isFinite(numeric)) return null;
   let amountCents = Math.round(Math.abs(numeric) * 100);
   const isNegative = negativeParens || numeric < 0;
